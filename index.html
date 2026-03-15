@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDC 2026 AI深度分析报告 — 批注版</title>
+<style>
+  :root {
+    --blue-dark: #1B3A5C;
+    --blue-mid: #2E75B6;
+    --blue-light: #D5E8F0;
+    --gray-dark: #333;
+    --gray-mid: #666;
+    --gray-light: #f2f2f2;
+    --sidebar-w: 320px;
+    --outline-w: 240px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif; background: #f5f6fa; color: var(--gray-dark); line-height: 1.8; }
+
+  /* Layout */
+  .app { display: flex; min-height: 100vh; }
+  .main { flex: 1; max-width: 900px; margin: 0 auto; padding: 40px 48px; background: #fff; box-shadow: 0 0 30px rgba(0,0,0,.06); }
+  .sidebar { width: var(--sidebar-w); background: #fff; border-left: 1px solid #e0e0e0; position: fixed; right: 0; top: 52px; bottom: 0; overflow-y: auto; box-shadow: -2px 0 12px rgba(0,0,0,.04); z-index: 100; display: flex; flex-direction: column; }
+
+  /* Left outline */
+  .outline { width: var(--outline-w); position: fixed; left: 0; top: 52px; bottom: 0; background: #fff; border-right: 1px solid #e8e8e8; overflow-y: auto; z-index: 100; padding: 16px 0; box-shadow: 2px 0 8px rgba(0,0,0,.03); }
+  .outline-header { padding: 0 16px 12px; font-size: 13px; font-weight: 700; color: var(--blue-dark); border-bottom: 1px solid #eee; margin-bottom: 8px; }
+  .outline a { display: block; padding: 5px 16px 5px 20px; font-size: 13px; color: var(--gray-mid); text-decoration: none; line-height: 1.5; border-left: 3px solid transparent; transition: all .15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .outline a:hover { color: var(--blue-mid); background: var(--blue-light); }
+  .outline a.active { color: var(--blue-mid); border-left-color: var(--blue-mid); font-weight: 600; background: rgba(46,117,182,.04); }
+  .outline a.lv2 { padding-left: 32px; font-size: 12.5px; }
+  .outline a.lv3 { padding-left: 44px; font-size: 12px; color: #999; }
+
+  /* Toolbar */
+  .toolbar { position: fixed; top: 0; left: 0; right: 0; height: 52px; background: var(--blue-dark); color: #fff; display: flex; align-items: center; padding: 0 24px; gap: 12px; z-index: 200; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  .toolbar h1 { font-size: 16px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toolbar button { background: rgba(255,255,255,.15); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background .2s; }
+  .toolbar button:hover { background: rgba(255,255,255,.25); }
+  .toolbar .btn-export { background: var(--blue-mid); }
+  .toolbar .btn-export:hover { background: #3a85c6; }
+  .toolbar .sidebar-toggle { display: none; }
+  .toolbar .ann-count { font-size: 12px; opacity: .7; }
+
+  .main { margin-top: 52px; padding-top: 48px; margin-right: var(--sidebar-w); margin-left: var(--outline-w); }
+
+  /* Typography */
+  h1.cover-title { font-size: 42px; color: var(--blue-dark); text-align: center; margin: 60px 0 12px; }
+  .cover-sub { font-size: 22px; color: var(--blue-mid); text-align: center; margin-bottom: 24px; }
+  .cover-info { text-align: center; color: var(--gray-mid); font-size: 14px; padding: 16px 0; border-top: 2px solid var(--blue-mid); border-bottom: 2px solid var(--blue-mid); margin: 30px auto; max-width: 480px; }
+  .cover-date { text-align: center; color: var(--gray-mid); font-size: 14px; margin-top: 12px; }
+
+  .section-title { font-size: 24px; font-weight: 700; color: var(--blue-dark); margin: 48px 0 16px; padding-bottom: 10px; border-bottom: 3px solid var(--blue-mid); }
+  .sub-title { font-size: 19px; font-weight: 700; color: var(--blue-mid); margin: 32px 0 12px; }
+  .sub-sub-title { font-size: 16px; font-weight: 700; color: var(--gray-dark); margin: 24px 0 8px; }
+
+  .body-text { margin-bottom: 12px; text-align: justify; font-size: 15px; }
+  .report-block { padding: 4px 8px; border-radius: 4px; }
+
+  /* Bullet & Tables */
+  ul.report-list { padding-left: 24px; margin-bottom: 12px; }
+  ul.report-list li { margin-bottom: 6px; font-size: 15px; }
+  ol.report-list { padding-left: 24px; margin-bottom: 12px; }
+  ol.report-list li { margin-bottom: 8px; font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+  th { background: var(--blue-dark); color: #fff; padding: 10px 14px; text-align: center; font-weight: 600; }
+  td { padding: 8px 14px; border: 1px solid #ddd; }
+  tr:nth-child(even) td { background: var(--gray-light); }
+
+  /* Text highlights in document */
+  .text-hl { border-radius: 3px; padding: 0 1px; cursor: pointer; transition: filter .15s, outline .15s; position: relative; }
+  .text-hl:hover { filter: brightness(0.88); }
+  .text-hl.active { outline: 2px solid var(--blue-mid); outline-offset: 1px; }
+  .text-hl .hl-dot { position: absolute; right: -6px; top: -6px; width: 14px; height: 14px; border-radius: 50%; background: var(--blue-mid); color: #fff; font-size: 8px; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; }
+  .text-hl.has-note .hl-dot { opacity: 1; }
+
+  /* Highlight color picker toolbar */
+  .hl-toolbar { position: fixed; display: none; background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 6px 8px; z-index: 300; box-shadow: 0 6px 24px rgba(0,0,0,.18); gap: 5px; align-items: center; }
+  .hl-toolbar.visible { display: flex; animation: popIn .15s ease; }
+  .hl-color { width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid #fff; cursor: pointer; transition: transform .15s; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+  .hl-color:hover { transform: scale(1.3); }
+
+  /* Note popup (appears after highlighting) */
+  .note-popup { display: none; position: fixed; z-index: 310; background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.18); padding: 16px; width: 340px; }
+  .note-popup.show { display: block; animation: popIn .2s ease; }
+  .note-popup .np-quote { font-size: 13px; color: var(--gray-mid); padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; line-height: 1.5; max-height: 56px; overflow: hidden; }
+  .note-popup textarea { width: 100%; height: 72px; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 14px; resize: vertical; font-family: inherit; line-height: 1.6; transition: border-color .2s; }
+  .note-popup textarea:focus { outline: none; border-color: var(--blue-mid); box-shadow: 0 0 0 3px rgba(46,117,182,.08); }
+  .note-popup .np-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+  .note-popup .np-actions button { padding: 6px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .15s; }
+  .np-skip { background: #f0f0f0; color: var(--gray-dark); }
+  .np-skip:hover { background: #e4e4e4; }
+  .np-save { background: var(--blue-mid); color: #fff; }
+  .np-save:hover { background: #2563a0; }
+
+  /* Sidebar */
+  .sidebar-header { padding: 16px 18px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .sidebar-header h2 { font-size: 15px; color: var(--blue-dark); flex: 1; }
+  .sidebar-header .badge { background: var(--blue-light); color: var(--blue-mid); font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .sidebar-body { flex: 1; overflow-y: auto; padding: 12px; }
+  .sidebar-hint { text-align: center; color: #bbb; font-size: 13px; padding: 48px 16px; line-height: 1.8; }
+
+  /* Annotation cards in sidebar */
+  .ann-card { background: #fff; border: 1px solid #eee; border-radius: 10px; padding: 14px; margin-bottom: 10px; font-size: 13px; animation: fadeIn .25s; box-shadow: 0 1px 4px rgba(0,0,0,.04); transition: box-shadow .2s, border-color .2s; cursor: pointer; }
+  .ann-card:hover { box-shadow: 0 3px 14px rgba(0,0,0,.08); border-color: #ddd; }
+  .ann-card.focused { border-color: var(--blue-mid); box-shadow: 0 0 0 2px rgba(46,117,182,.15); }
+  .ann-card .ann-quote { padding: 6px 10px; border-radius: 4px; margin-bottom: 8px; font-size: 13px; line-height: 1.5; word-break: break-word; }
+  .ann-card .ann-note { color: var(--gray-dark); font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; padding: 6px 0; }
+  .ann-card .ann-note:empty { display: none; }
+  .ann-card .ann-time { font-size: 11px; color: #bbb; }
+  .ann-card .ann-actions { display: flex; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
+  .ann-card .ann-actions button { background: none; border: none; color: #aaa; font-size: 12px; cursor: pointer; padding: 2px 0; transition: color .15s; }
+  .ann-card .ann-actions button:hover { color: var(--blue-mid); }
+  .ann-card .ann-actions button.del:hover { color: #e74c3c; }
+
+  /* Export overlay */
+  .export-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 400; align-items: center; justify-content: center; }
+  .export-overlay.show { display: flex; }
+  .export-box { background: #fff; border-radius: 14px; padding: 32px; max-width: 540px; width: 90%; }
+  .export-box h3 { margin-bottom: 8px; color: var(--blue-dark); }
+  .export-box .export-desc { font-size: 13px; color: #666; margin-bottom: 16px; }
+  .export-box pre { background: var(--gray-light); padding: 16px; border-radius: 8px; text-align: left; font-size: 13px; max-height: 400px; overflow: auto; white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+  .export-box .export-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+  .export-box .export-actions button { padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; }
+
+  .page-break { border: none; border-top: 1px dashed #ccc; margin: 40px 0; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  @keyframes popIn { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
+
+  @media print { .toolbar, .sidebar, .outline, .hl-toolbar, .note-popup, .export-overlay { display: none !important; } .main { margin: 0; box-shadow: none; max-width: 100%; } }
+  @media (max-width: 1300px) {
+    .outline { display: none; }
+    .outline.open { display: block; }
+    .main { margin-left: 0; }
+    .toolbar .outline-toggle { display: inline-block !important; }
+  }
+  @media (max-width: 1100px) {
+    .sidebar { display: none; }
+    .sidebar.open { display: flex; position: fixed; top: 52px; right: 0; bottom: 0; width: 100%; max-width: 340px; z-index: 150; }
+    .toolbar .sidebar-toggle { display: inline-block !important; }
+    .main { margin-right: 0; }
+  }
+
+  .sidebar-body::-webkit-scrollbar { width: 5px; }
+  .sidebar-body::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+  .outline::-webkit-scrollbar { width: 5px; }
+  .outline::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+  /* Sync status */
+  .sync-status { font-size: 14px; cursor: default; transition: opacity .3s; }
+  .sync-status.syncing { animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--blue-dark); color: #fff; padding: 10px 24px; border-radius: 10px; font-size: 14px; z-index: 500; opacity: 0; transition: all .3s ease; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <button class="outline-toggle" style="display:none" onclick="document.getElementById('outlinePanel').classList.toggle('open')">目录</button>
+  <h1>GDC 2026 AI深度分析报告</h1>
+  <span class="ann-count" id="toolbarCount"></span>
+  <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">批注面板</button>
+  <span class="sync-status" id="syncStatus" title="同步状态">⏳</span>
+  <button class="btn-export" onclick="exportAll()">导出</button>
+</div>
+
+<!-- Left outline -->
+<div class="outline" id="outlinePanel">
+  <div class="outline-header">📑 目录</div>
+  <nav id="outlineNav"></nav>
+</div>
+
+<!-- Main Content -->
+<div class="main" id="report">
+
+<h1 class="cover-title">GDC 2026</h1>
+<div class="cover-sub">AI 与生成式 AI 在游戏行业的深度分析报告</div>
+<div class="cover-info">Game Developers Conference · Festival of Gaming</div>
+<div class="cover-date">2026年3月9日 - 13日 · 旧金山 Moscone Center<br>报告日期：2026年3月15日</div>
+
+<hr class="page-break">
+
+<div class="section-title" id="s1">一、执行摘要</div>
+
+<div class="report-block">
+  <p class="body-text">GDC 2026（游戏开发者大会）于2026年3月9日至13日在旧金山Moscone Center举行，今年正式更名为「GDC Festival of Gaming」，汇集了超过700场跨学科议程、1,100位演讲者与300余家参展商。人工智能（AI）与生成式AI（Generative AI）毫无疑问成为本届大会最核心的议题，贯穿了从技术演示到行业趋势讨论的方方面面。</p>
+</div>
+
+<div class="report-block">
+  <p class="body-text">本报告基于对GDC 2026大会议程、行业调查报告、技术演示及参展厂商发布内容的系统调研，从三个维度展开深度分析：传统游戏AI（NPC行为、强化学习、程序化生成、神经渲染等）、生成式AI在游戏开发中的应用（世界生成、资产管线、引擎整合、端到端创作等），以及行业生态与从业者态度的变迁。报告旨在为决策者提供全景式的趋势洞察与战略参考。</p>
+</div>
+
+<hr class="page-break">
+
+<div class="section-title" id="s2">二、GDC 2026 大会概览</div>
+<div class="sub-title">2.1 大会基本信息</div>
+
+<div class="report-block">
+  <p class="body-text">GDC 2026是该大会举办以来规模最大的一届，也是首次以「Festival of Gaming」的全新品牌形象亮相。大会包含16个Summit Communities（峰会社区），其中与AI直接相关的包括Game AI Summit（游戏AI峰会）和Machine Learning Summit（机器学习峰会）。</p>
+</div>
+
+<div class="report-block">
+  <table>
+    <tr><td style="font-weight:600;width:140px">大会名称</td><td>GDC Festival of Gaming 2026</td></tr>
+    <tr><td style="font-weight:600">时间</td><td>2026年3月9日 - 13日</td></tr>
+    <tr><td style="font-weight:600">地点</td><td>旧金山 Moscone Center</td></tr>
+    <tr><td style="font-weight:600">议程数量</td><td>700+ 跨学科议程</td></tr>
+    <tr><td style="font-weight:600">演讲者</td><td>1,100+ 位</td></tr>
+    <tr><td style="font-weight:600">参展商</td><td>300+ 家</td></tr>
+    <tr><td style="font-weight:600">AI相关峰会</td><td>Game AI Summit、Machine Learning Summit</td></tr>
+  </table>
+</div>
+
+<div class="sub-title">2.2 行业调查关键数据</div>
+
+<div class="report-block">
+  <p class="body-text">GDC官方发布的《2026年游戏行业现状报告》基于超过2,300名从业者的调研，揭示了行业对AI的复杂态度：</p>
+</div>
+
+<div class="report-block">
+  <table>
+    <tr><th>指标</th><th>2024</th><th>2025</th><th>2026</th></tr>
+    <tr><td>认为生成式AI对行业有负面影响</td><td>18%</td><td>30%</td><td>52%</td></tr>
+    <tr><td>认为生成式AI对行业有正面影响</td><td>-</td><td>13%</td><td>7%</td></tr>
+    <tr><td>已在工作中使用AI工具</td><td>-</td><td>-</td><td>36%</td></tr>
+    <tr><td>近12个月内失业</td><td>-</td><td>-</td><td>17%</td></tr>
+    <tr><td>近2年内遭裁员</td><td>-</td><td>-</td><td>28%</td></tr>
+  </table>
+</div>
+
+<div class="report-block">
+  <p class="body-text">按职能分析，视觉与技术美术从业者中有64%持负面态度，游戏设计与叙事方向为63%，程序员为59%。相比之下，高管和商务运营岗位中仍有19%持正面看法。尽管整体情绪趋于警惕，AI工具的实际使用率达到36%，主要集中在研究与头脑风暴（81%）、编码辅助（47%）、邮件与会议规划（47%）和原型制作（35%）等场景。</p>
+</div>
+
+<hr class="page-break">
+
+<div class="section-title" id="s3">三、传统游戏AI：智能化体验的持续进化</div>
+
+<div class="report-block">
+  <p class="body-text">「传统游戏AI」在本报告中指非生成模型驱动的AI技术，包括强化学习、行为树与状态机的进化、程序化生成、机器学习驱动的NPC行为、自动化测试、神经渲染等。这些技术在GDC 2026上展现出了更加成熟的落地应用。</p>
+</div>
+
+<div class="sub-title">3.1 强化学习：从实验到产品级部署</div>
+<div class="sub-sub-title">EA SPORTS FC 26 — 强化学习守门员AI</div>
+
+<div class="report-block">
+  <p class="body-text">EA SEED团队与EA SPORTS团队联合展示了「Reinforcement Learning in FC26: Shipping Human-Like Goalkeepers with a Designer-First Approach」，这是强化学习在3A游戏中规模化落地的标志性案例。该系统采用「设计师优先」的理念，通过设计师定义的奖励函数和行为约束，使强化学习训练出的守门员展现出更加拟人化的扑救行为。相比传统手工编写的状态机方案，该方法不仅大幅降低了训练时间，还显著提升了行为的真实感与多样性。</p>
+</div>
+
+<div class="report-block">
+  <p class="body-text">这一案例的关键启示在于：强化学习的工业化应用正在从「技术驱动」转向「设计师驱动」——AI工程师提供基础设施和训练框架，而游戏设计师通过直觉化的参数调整来塑造最终的角色行为，大幅降低了ML技术在游戏团队中的落地门槛。</p>
+</div>
+
+<div class="sub-sub-title">Machine Learning Forum — 行业专家圆桌</div>
+<div class="report-block">
+  <p class="body-text">「Machine Learning Forum: Ask the Experts」圆桌汇集了来自Ubisoft La Forge、Google DeepMind、EA SEED、Embark Studios、Orion Productions和Blizzard Entertainment的技术领袖，围绕ML在游戏开发工作流中的实际应用展开深度讨论。议题涵盖了从训练基础设施搭建到模型部署优化、从数据收集策略到团队协作模式等多个层面。</p>
+</div>
+
+<div class="sub-title">3.2 机器学习驱动的NPC行为系统</div>
+<div class="sub-sub-title">《星球大战：亡命之徒》— 载具AI</div>
+<div class="report-block">
+  <p class="body-text">Ubisoft在Machine Learning Summit上展示了《星球大战：亡命之徒》（Star Wars Outlaws）中基于机器学习的载具AI系统。团队分享了选择ML方案而非传统路径规划/物理模拟方案的决策逻辑，以及ML方案在复杂地形适应性、行为自然度和开发效率上的显著优势。</p>
+</div>
+
+<div class="sub-sub-title">NVIDIA ACE — 自主游戏角色</div>
+<div class="report-block">
+  <p class="body-text">NVIDIA在GDC 2026上展示了ACE（Avatar Cloud Engine）平台的重大更新，包括产品级质量的文本转语音引擎、增强的语言识别能力、以及即将推出的Nemotron 3 Nano 4B小语言模型。ACE的核心愿景是创建具有自主决策能力的游戏角色——包括自主队友、智能NPC和自学习敌人——为游戏带来全新的叙事可能性和沉浸体验。设备端推理能力意味着开发者可以在不依赖云服务的情况下实现高质量的角色AI。</p>
+</div>
+
+<div class="sub-title">3.3 AI驱动的游戏测试与质量保证</div>
+<div class="sub-sub-title">NVIDIA GeForce NOW Playtest</div>
+<div class="report-block">
+  <p class="body-text">NVIDIA推出的GeForce NOW Playtest服务允许工作室通过云端进行大规模的游戏测试和玩家参与度评估，利用AI分析玩家行为数据来识别设计问题和平衡性缺陷。</p>
+</div>
+
+<div class="sub-sub-title">腾讯 WeTest — AI驱动的游戏质量平台</div>
+<div class="report-block">
+  <p class="body-text">腾讯WeTest作为一站式游戏质量服务平台，在GDC 2026上展示了其AI驱动的测试解决方案。该平台已服务超过1,000家游戏公司，覆盖性能测试、兼容性测试、安全测试等多个维度。</p>
+</div>
+
+<div class="sub-sub-title">腾讯云 ACE — AI反作弊系统</div>
+<div class="report-block">
+  <p class="body-text">腾讯云展示了Anti-Cheat Expert（ACE）反作弊系统，这是一套基于AI行为检测和场景化安全架构的全场景实时反作弊系统，积累了超过20年的技术经验。ACE与EdgeOne组合形成多层防御体系，在不影响性能的前提下保护游戏完整性和公平竞技环境。</p>
+</div>
+
+<div class="sub-title">3.4 NVIDIA 神经渲染与AI图形技术</div>
+<div class="report-block">
+  <p class="body-text">虽然神经渲染严格来说属于图形技术范畴，但其核心依赖深度学习技术，与游戏AI的发展密切相关。NVIDIA在GDC 2026上发布了多项重要更新：</p>
+  <ul class="report-list">
+    <li><strong>DLSS 4.5 Dynamic Multi Frame Gen：</strong>新一代动态多帧生成技术，将于3月31日正式推出，已有20款新游戏宣布支持。</li>
+    <li><strong>RTX Mega Geometry：</strong>全新的植被渲染系统，优化了密集环境下的光线追踪性能。</li>
+    <li><strong>RTX Kit：</strong>神经渲染工具套件，集成了ReSTIR PT等技术，为光线追踪、大规模几何体渲染和角色视觉提供AI加速。</li>
+  </ul>
+  <p class="body-text">NVIDIA VP Bryan Catanzaro指出，机器学习正日益成为开发者面临的各类问题的解决方案。未来的渲染管线将是传统光栅化与神经网络的深度融合，RTX 5090可能代表传统光栅化的巅峰，而未来将全面转向神经渲染。</p>
+</div>
+
+<div class="sub-title">3.5 腾讯 MagicDawn — AI驱动的引擎技术方案</div>
+<div class="report-block">
+  <p class="body-text">MagicDawn是腾讯游戏在GDC 2026上全球首次公开展示的AI驱动引擎技术方案，此前曾在SIGGRAPH Asia 2025上进行过早期技术预览。MagicDawn集成了AI驱动的全局光照（Global Illumination）、空间音频（Spatial Audio）和高级遮挡剪裁（Occlusion Culling）技术，旨在帮助开发者高效交付下一代视听体验。</p>
+</div>
+<div class="report-block">
+  <p class="body-text">值得关注的是，MagicDawn兼容主流引擎包括Unreal Engine、Unity和Godot，这意味着它不是一个封闭的引擎方案，而是可以插入现有工作流的增强工具。MoreFun Studios的Feng Sheng和MagicDawn团队的Zhenyuan Zhang在「Illuminating Roco's Legacy: Scalable Global Illumination from Theory to Practice」议程中，以《洛克王国：世界》为案例展示了MagicDawn在实际生产中的应用。</p>
+</div>
+
+<div class="sub-title">3.6 腾讯云 GMES — AI增强的游戏多媒体解决方案</div>
+<div class="report-block">
+  <p class="body-text">腾讯云在GDC 2026上发布了升级版Game Multimedia Engagement Solution（GMES），其核心组件GVoice通过AI增强语音、魔法变声（Magic Voice）和实时翻译等技术，支持五大洲玩家的无障碍沟通。该方案覆盖多样化的游戏场景，让全球玩家能够跨越语言障碍进行协作与社交。</p>
+</div>
+
+<hr class="page-break">
+
+<div class="section-title" id="s4">四、生成式AI：重塑游戏开发管线</div>
+
+<div class="report-block">
+  <p class="body-text">生成式AI是GDC 2026上最具争议也最受瞩目的话题。大会上展示了从世界生成到资产管线、从引擎集成到端到端游戏创作的全方位应用案例。</p>
+</div>
+
+<div class="sub-title">4.1 世界生成：Google DeepMind Genie 3</div>
+<div class="report-block">
+  <p class="body-text">Google DeepMind在GDC 2026上展示了Genie 3，这是一款通用世界模型（World Model），能够根据文本提示实时生成可导航的3D世界。其Demo在GDC现场吸引了大量观众。关键突破包括：</p>
+  <ul class="report-list">
+    <li><strong>实时交互性：</strong>以24帧/秒的速率生成动态环境，支持玩家实时导航。</li>
+    <li><strong>物理仿真：</strong>能够模拟物理交互和动态效果，超越了静态3D快照的局限。</li>
+    <li><strong>持续一致性：</strong>在720p分辨率下可以维持数分钟的环境一致性。</li>
+    <li><strong>通用性：</strong>支持从机器人场景、动画模拟到历史场景探索等多种应用。</li>
+  </ul>
+  <p class="body-text">Google已将该技术以Project Genie的形式向Google AI Ultra订阅用户开放。在「The Future of Playable Worlds with Google DeepMind」议程中，Google提出了从Live Services向Living Games演进的愿景——让游戏世界能够快速响应玩家行为，利用生成式AI自动弥合玩家行为与内容创作之间的鸿沟。</p>
+</div>
+
+<div class="sub-title">4.2 扩散模型与3D资产生成</div>
+<div class="sub-sub-title">Blizzard Zenith — 扩散模型地图生成</div>
+<div class="report-block">
+  <p class="body-text">暴雪娱乐的Zhen Zhai展示了Zenith，一个混合管线系统，能够从3D环境中自动生成多层级的俯视地图。Zenith结合了程序化几何提取与多编码器ControlNet架构，利用深度、法线和细节条件生成可行走区域及风格化图层（线稿、阴影、高光）。该系统展示了扩散模型可以作为美术制作流程的加速器而非替代品——这种「人机协作」模式是当前行业对生成式AI应用的主流共识之一。</p>
+</div>
+
+<div class="sub-sub-title">Tripo AI — 原生3D扩散技术</div>
+<div class="report-block">
+  <p class="body-text">Tripo AI在GDC 2026上首次展示了产品级的原生3D扩散架构Tripo P1.0，可直接在三维空间中生成引擎就绪的资产，而非通过2D图像的3D化重建。现场演示包括提示词和参考图生成、智能网格工作流、以及在Unity和Unreal Engine中的实时迭代。同时展示的还有高保真旗舰模型Tripo H3.1（在输入对齐、几何精度、纹理质量和生成速度上均有显著提升）以及早期研究阶段的世界模型Tripo W1.0。</p>
+</div>
+
+<div class="sub-sub-title">腾讯 HY 3D — 多模态AI创作引擎</div>
+<div class="report-block">
+  <p class="body-text">腾讯云展示了近期发布的HY 3D AI创作引擎，该方案允许企业从文本、图像、草图等多种多模态输入中在数分钟内生成高质量3D资产，显著降低了3D内容制作的门槛和时间成本。</p>
+</div>
+
+<div class="sub-title">4.3 游戏引擎与AI的深度整合</div>
+<div class="sub-sub-title">Unity AI — 自然语言创建游戏</div>
+<div class="report-block">
+  <p class="body-text">Unity CEO Matthew Bromberg在GDC 2026上宣布了Unity AI的Beta版本，该系统允许开发者完全通过自然语言提示（Prompt）创建完整的休闲游戏，无需任何编程经验。Unity的目标是面向数千万潜在创作者「去除创作过程中的一切摩擦」。该系统的核心技术基于Unity对项目上下文和运行时环境的独特理解，结合OpenAI GPT和Meta Llama等前沿大语言模型，提供比通用AI模型更高效和精确的结果。全新Web访问式创作环境进一步降低了非编程人员的入门门槛。</p>
+</div>
+
+<div class="sub-title">4.4 腾讯游戏的生成式AI技术矩阵</div>
+
+<div class="report-block">
+  <p class="body-text">腾讯游戏在GDC 2026上呈现了超过20场议程和全方位的技术展示，是本届大会上AI布局最为全面的中国厂商。其Luminaries Speaker Series中，腾讯游戏技术负责人Nathan Chen讨论了AI如何被整合到公司各工作室的生产管线中。</p>
+</div>
+
+<div class="sub-sub-title">VISVISE — AI游戏创作套件</div>
+<div class="report-block">
+  <p class="body-text">VISVISE是一款集成了3D动画生成、自动绑骨、建模和数字资产管理的AI驱动游戏创作工具。其目标是大幅简化3D内容制作的复杂流程。</p>
+</div>
+
+<div class="sub-sub-title">ASI World — 端到端AI内容生产管线</div>
+<div class="report-block">
+  <p class="body-text">ASI World（Artificial Super Intelligence World）是一套集成的AI内容生产管线，能够通过单一提示在一个扩展会话中生成完整的SRPG游戏。这代表了当前端到端AI游戏生成的最前沿水平。</p>
+</div>
+
+<div class="sub-sub-title">《王者荣耀》— AI辅助资产管线</div>
+<div class="report-block">
+  <p class="body-text">天美工作室的Leon Zhang和Zhipeng Tan在Machine Learning Summit上展示了《王者荣耀》的可扩展AI辅助资产生产管线，展示了AI如何在大规模长线运营游戏的生产环境中实现高效率的资产创作。</p>
+</div>
+
+<div class="sub-sub-title">AI武术动作生成</div>
+<div class="report-block">
+  <p class="body-text">更趣工作室（MoreFun Studios）AI负责人Elvis Liu展示了AI生成的功夫动作系统，可以动态生成流畅、高保真的武术动画，为动画制作流程带来了革新性的效率提升。</p>
+</div>
+
+<div class="sub-title">4.5 微软/Xbox：Gaming Copilot</div>
+<div class="report-block">
+  <p class="body-text">微软在GDC 2026上推出了Gaming Copilot，这是一个基于大语言模型的面向玩家的AI助手，将于2026年内登陆Xbox Series X|S。Gaming Copilot能够在游戏过程中为玩家提供实时帮助，支持语音和文本交互。早期测试数据显示：30%的使用围绕直接游戏帮助，25%用于游戏发现和商店导航，19%则是纯粹的闲聊娱乐。</p>
+</div>
+<div class="report-block">
+  <p class="body-text">值得关注的是微软对「AI品质」的坚定立场。2026年2月上任的微软游戏CEO Asha Sharma明确表示要保护平台免受「无灵魂AI垃圾」的侵害，并积极推动与攻略创作者的授权合作，确保内容创作者的劳动成果得到尊重和补偿。</p>
+</div>
+
+<div class="sub-title">4.6 AWS — 代理式AI与游戏开发</div>
+<div class="report-block">
+  <p class="body-text">AWS在GDC 2026期间举办了一整天的游戏开发者峰会，包含七场深度议程，探讨从游戏玩法创新到AI Agent构建的多个话题。AWS探索了如何将Amazon SageMaker和Amazon Bedrock驱动的生成式AI融入游戏生产环境，在保持美术风格和品牌一致性的前提下加速内容创作。现场还设置了「Agentic Arcade」体验区，展示AI Agent辅助游戏生产的实际案例。</p>
+</div>
+
+<div class="sub-title">4.7 网易游戏 — AI与短视频内容创作</div>
+<div class="report-block">
+  <p class="body-text">网易游戏在GDC 2026上带来了5场演讲，其中与AI相关的亮点包括「Short Form Futures: How AI Turned MMO Players into TikTok Creators」议程。设计师Chang Liu展示了StageHub和QuickShoot Stage系统，玩家可以导入游戏片段，让AI自动提取动作和镜头运动，上线一年已实现日均500万次滑动浏览。这代表了AI在游戏UGC内容生态中的创新应用。</p>
+</div>
+
+<hr class="page-break">
+
+<div class="section-title" id="s5">五、行业生态与从业者态度</div>
+
+<div class="sub-title">5.1 情绪分化加剧</div>
+<div class="report-block">
+  <p class="body-text">GDC 2026的调查数据揭示了行业对AI态度的显著两极化。一方面，AI工具的实际使用率在增长；另一方面，对其负面影响的担忧却在急剧上升。这种矛盾反映出行业正处于一个关键转折点：AI技术的实用价值已被广泛认可，但其对就业、版权和创作本质的冲击同样被深刻感受。高管层（19%正面）与一线创作者（仅7%正面）之间存在显著的认知差距。这种分裂可能成为未来AI策略制定中的主要挑战。</p>
+</div>
+
+<div class="sub-title">5.2 版权与伦理争议</div>
+<div class="report-block">
+  <p class="body-text">版权问题是生成式AI在游戏行业面临的最大伦理障碍。开发者普遍关注AI模型未经同意抓取版权作品用于训练、AI生成内容的版权归属模糊、以及环境影响（AI数据中心的能源消耗）等核心问题。微软的内容创作者授权合作模式为行业提供了一个值得参考的解决思路。</p>
+</div>
+
+<div class="sub-title">5.3 就业市场压力</div>
+<div class="report-block">
+  <p class="body-text">行业裁员潮与AI浪潮的叠加加剧了从业者的焦虑。17%的受访者在过去12个月内失去了工作，28%在过去两年内遭裁员。23%预计未来一年还会有更多裁员，30%表示不确定。60%的受访教育者认为当前行业状况将使新毕业生更难找到工作。AI被视为这一趋势的催化剂之一。</p>
+</div>
+
+<div class="sub-title">5.4 「无区块链」的信号</div>
+<div class="report-block">
+  <p class="body-text">GDC 2026首次出现了零区块链游戏相关议程的情况，与几年前区块链/NFT概念盛行的氛围形成鲜明对比。这表明行业的技术关注点已完全转向AI，也预示着技术炒作周期的自然演进——AI是否也会经历类似的起伏值得持续观察。</p>
+</div>
+
+<hr class="page-break">
+
+<div class="section-title" id="s6">六、核心趋势与战略启示</div>
+<div class="sub-title">6.1 六大核心趋势</div>
+
+<div class="report-block">
+  <ol class="report-list">
+    <li><strong>设计师驱动的AI落地：</strong>以EA FC 26为代表，AI系统的设计权正在从工程师移交给设计师，降低了AI在创意团队中的应用门槛。</li>
+    <li><strong>端到端生成能力的涌现：</strong>从腾讯ASI World的完整游戏生成到Unity的自然语言创作，端到端AI生产管线正从概念走向产品。</li>
+    <li><strong>世界模型成为新焦点：</strong>Google Genie 3和Tripo W1.0代表的世界模型技术正在定义一种全新的游戏生成范式。</li>
+    <li><strong>设备端AI推理的成熟：</strong>NVIDIA ACE的端侧小模型部署、神经渲染的实时化，预示着游戏AI正在摆脱对云端的依赖。</li>
+    <li><strong>中国厂商的全面崛起：</strong>腾讯以超过20场议程和全矩阵技术展示引领了中国厂商在GDC上的强势表现，网易游戏也带来了创新性的AI应用案例。</li>
+    <li><strong>行业情绪的深度分裂：</strong>技术乐观主义与创作者焦虑之间的裂痕正在扩大，如何平衡效率提升与人文关怀将成为行业的长期命题。</li>
+  </ol>
+</div>
+
+<div class="sub-title">6.2 战略建议</div>
+<div class="report-block">
+  <table>
+    <tr><th>维度</th><th>建议</th><th>优先级</th></tr>
+    <tr><td>技术储备</td><td>重点跟踪RL的产品化落地，建立「设计师驱动」的ML工作流</td><td>高</td></tr>
+    <tr><td>生产管线</td><td>评估AI辅助资产管线的ROI，参考腾讯天美的实践</td><td>高</td></tr>
+    <tr><td>引擎生态</td><td>关注Unity AI和MagicDawn的演进，评估其对工作流的影响</td><td>中</td></tr>
+    <tr><td>版权合规</td><td>建立内部AI使用规范，关注各国版权立法动态</td><td>高</td></tr>
+    <tr><td>人才策略</td><td>培养ML与设计的复合型人才，重视AI素养建设</td><td>中</td></tr>
+    <tr><td>3D资产</td><td>评估Tripo AI、HY 3D等原生3D生成工具的成熟度</td><td>中</td></tr>
+  </table>
+</div>
+
+<hr class="page-break">
+
+<div class="section-title" id="s7">七、重点厂商与技术一览</div>
+
+<div class="report-block">
+  <table>
+    <tr><th>厂商</th><th>核心技术/产品</th><th>应用场景</th><th>类型</th><th>亮点</th></tr>
+    <tr><td>NVIDIA</td><td>ACE, DLSS 4.5, RTX Kit</td><td>NPC AI、渲染、测试</td><td>传统+生成</td><td>端侧推理</td></tr>
+    <tr><td>Google</td><td>Genie 3, DeepMind</td><td>世界生成</td><td>生成式</td><td>Living Games</td></tr>
+    <tr><td>EA</td><td>RL守门员、SEED</td><td>FC 26, F1 25</td><td>传统 AI</td><td>设计师驱动</td></tr>
+    <tr><td>暴雪</td><td>Zenith扩散模型</td><td>地图生成</td><td>生成式</td><td>人机协作</td></tr>
+    <tr><td>Unity</td><td>自然语言游戏创作</td><td>休闲游戏开发</td><td>生成式</td><td>零代码创作</td></tr>
+    <tr><td>腾讯</td><td>MagicDawn, VISVISE, ASI World, HY 3D, ACE, GMES, WeTest</td><td>全链路覆盖</td><td>传统+生成</td><td>最全矩阵</td></tr>
+    <tr><td>微软</td><td>Gaming Copilot</td><td>玩家AI助手</td><td>生成式</td><td>反 AI Slop</td></tr>
+    <tr><td>AWS</td><td>Bedrock, SageMaker</td><td>游戏生产管线</td><td>生成式</td><td>Agentic Arcade</td></tr>
+    <tr><td>Tripo AI</td><td>P1.0, H3.1, W1.0</td><td>3D资产生成</td><td>生成式</td><td>原生3D扩散</td></tr>
+    <tr><td>Ubisoft</td><td>La Forge ML</td><td>载具AI、NPC</td><td>传统 AI</td><td>ML落地实战</td></tr>
+    <tr><td>网易</td><td>StageHub, QuickShoot</td><td>UGC短视频</td><td>生成式</td><td>日均500万</td></tr>
+  </table>
+</div>
+
+<hr class="page-break">
+
+<div class="section-title" id="s8">八、结语</div>
+
+<div class="report-block">
+  <p class="body-text">GDC 2026传递出一个清晰的信号：AI正在从游戏开发的「可选项」变为「必选项」。传统游戏AI在强化学习、NPC行为、自动化测试和神经渲染方面展现了更加成熟的产品化能力；生成式AI则在世界生成、资产管线、引擎整合和端到端创作方面取得了突破性进展。与此同时，行业也在经历一场深刻的心理转型——技术的力量令人兴奋，但对创作本质、就业安全和伦理底线的担忧同样真实。</p>
+</div>
+
+<div class="report-block">
+  <p class="body-text">对于游戏企业而言，关键不在于是否拥抱AI，而在于如何以负责任、可持续的方式将AI整合到自身的开发文化和生产管线中。那些能够在技术创新与人文关怀之间找到平衡的团队，将在这场变革中占据先机。</p>
+</div>
+
+<div style="text-align:center;border-top:2px solid var(--blue-mid);margin-top:48px;padding-top:20px;color:var(--gray-mid);font-style:italic;">— 报告完 —</div>
+
+</div><!-- /main -->
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h2>批注</h2>
+    <span class="badge" id="annBadge">0</span>
+  </div>
+  <div class="sidebar-body" id="sidebarBody">
+    <div id="annList"></div>
+    <div class="sidebar-hint" id="emptyHint">选中报告中的文字<br>选择颜色进行标注<br>可附加批注文字</div>
+  </div>
+</div>
+
+<!-- Highlight color picker -->
+<div class="hl-toolbar" id="hlToolbar">
+  <button class="hl-color" style="background:#fde68a" onclick="doHighlight('#fde68a')" title="黄色"></button>
+  <button class="hl-color" style="background:#bbf7d0" onclick="doHighlight('#bbf7d0')" title="绿色"></button>
+  <button class="hl-color" style="background:#bfdbfe" onclick="doHighlight('#bfdbfe')" title="蓝色"></button>
+  <button class="hl-color" style="background:#fecaca" onclick="doHighlight('#fecaca')" title="红色"></button>
+  <button class="hl-color" style="background:#e9d5ff" onclick="doHighlight('#e9d5ff')" title="紫色"></button>
+</div>
+
+<!-- Note popup (after highlighting) -->
+<div class="note-popup" id="notePopup">
+  <div class="np-quote" id="npQuote"></div>
+  <textarea id="npInput" placeholder="添加批注（可留空）..."></textarea>
+  <div class="np-actions">
+    <button class="np-skip" onclick="saveNote(false)">跳过</button>
+    <button class="np-save" onclick="saveNote(true)">保存批注</button>
+  </div>
+</div>
+
+<!-- Export overlay -->
+<div class="export-overlay" id="exportOverlay" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="export-box">
+    <h3>导出批注</h3>
+    <div class="export-desc">复制以下内容发给 Claude 即可根据批注更新报告</div>
+    <pre id="exportContent"></pre>
+    <div class="export-actions">
+      <button onclick="document.getElementById('exportOverlay').classList.remove('show')" style="background:#eee;color:#333;">关闭</button>
+      <button onclick="copyExport()" id="copyBtn" style="background:var(--blue-mid);color:#fff;">复制到剪贴板</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /app -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Config ───
+const GH_OWNER = 'maxlightchaser';
+const GH_REPO = 'gdc2026-ai-report';
+const GH_FILE = 'annotations.json';
+const GH_API = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+const GH_PAGES = `https://${GH_OWNER}.github.io/${GH_REPO}/${GH_FILE}`;
+const GH_TOKEN_D = '0,13,23,90,69,80,105,93,0,29,114,67,84,50,88,68,65,36,46,50,2,101,0,119,94,19,37,76,56,9,68,28,21,43,80,92,19,106,7,71,102,26,24,14,117,22,32,2,58,31,29,8,86,53,86,91,123,103,31,56,24,76,30,39,71,0,53,27,18,3,55,0,6,66,88,97,82,95,105,63,50,51,58,36,55,55,34,13,2,81,93,71,21'; // injected at deploy time (XOR encoded comma-separated ints)
+const SYNC_INTERVAL = 20000;
+const LOCAL_KEY = 'gdc2026_ann_v3';
+
+// ─── State ───
+let annotations = [];
+let pendingSel = null;
+let pendingHlId = null;
+let syncing = false;
+let fileSha = null; // GitHub file SHA for updates
+
+// ─── Toast ───
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ─── Sync status indicator ───
+function setSyncStatus(state) {
+  const el = document.getElementById('syncStatus');
+  el.classList.remove('syncing');
+  if (state === 'ok') { el.textContent = '🟢'; el.title = '已同步'; }
+  else if (state === 'syncing') { el.textContent = '🔄'; el.title = '同步中...'; el.classList.add('syncing'); }
+  else if (state === 'offline') { el.textContent = '🔴'; el.title = '离线（仅本地）'; }
+}
+
+// ─── GitHub token (XOR decoded at runtime) ───
+function getToken() {
+  if (!GH_TOKEN_D || GH_TOKEN_D.indexOf('GH_TOKEN') >= 0) return null;
+  try {
+    const k = GH_REPO;
+    const nums = GH_TOKEN_D.split(',').map(Number);
+    return nums.map((c, i) => String.fromCharCode(c ^ k.charCodeAt(i % k.length))).join('');
+  } catch(e) { return null; }
+}
+
+// ─── Remote sync via GitHub API ───
+async function fetchRemote() {
+  try {
+    // Use GitHub API to get file content + sha
+    const resp = await fetch(GH_API, {
+      headers: { 'Accept': 'application/vnd.github+json' },
+    });
+    if (resp.status === 404) {
+      // File doesn't exist yet
+      fileSha = null;
+      return [];
+    }
+    if (!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    fileSha = data.sha;
+    // Decode base64 → UTF-8 properly (atob only handles Latin-1)
+    const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, '')), c => c.charCodeAt(0));
+    const content = JSON.parse(new TextDecoder().decode(bytes));
+    return content.annotations || [];
+  } catch(e) {
+    console.warn('Fetch remote failed:', e);
+    return null;
+  }
+}
+
+async function pushRemote(anns, retries = 2) {
+  const token = getToken();
+  if (!token) { setSyncStatus('offline'); return false; }
+
+  try {
+    setSyncStatus('syncing');
+
+    // Get latest sha first to avoid conflicts
+    const getResp = await fetch(GH_API, {
+      headers: { 'Accept': 'application/vnd.github+json', 'Authorization': `Bearer ${token}` },
+    });
+    if (getResp.ok) {
+      const getData = await getResp.json();
+      fileSha = getData.sha;
+    } else if (getResp.status !== 404) {
+      throw new Error('GET ' + getResp.status);
+    }
+
+    const body = {
+      message: 'Update annotations',
+      content: btoa(unescape(encodeURIComponent(JSON.stringify({ annotations: anns }, null, 2)))),
+    };
+    if (fileSha) body.sha = fileSha;
+
+    const resp = await fetch(GH_API, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (resp.status === 409 && retries > 0) {
+      // Conflict — re-fetch and retry
+      console.warn('SHA conflict, retrying...');
+      return pushRemote(anns, retries - 1);
+    }
+    if (!resp.ok) throw new Error('PUT ' + resp.status);
+
+    const result = await resp.json();
+    fileSha = result.content.sha;
+    setSyncStatus('ok');
+    return true;
+  } catch(e) {
+    console.warn('Push remote failed:', e);
+    setSyncStatus('offline');
+    return false;
+  }
+}
+
+// Merge remote annotations with local (union by id, local edits win for conflicts)
+function mergeAnnotations(local, remote) {
+  const localMap = new Map(local.map(a => [a.id, a]));
+  const remoteMap = new Map(remote.map(a => [a.id, a]));
+  const merged = [];
+  const allIds = new Set([...localMap.keys(), ...remoteMap.keys()]);
+  for (const id of allIds) {
+    // Local version wins for items that exist in both (user's own edits take priority)
+    merged.push(localMap.get(id) || remoteMap.get(id));
+  }
+  // Sort by id (chronological)
+  merged.sort((a, b) => a.id - b.id);
+  return merged;
+}
+
+// ─── Local storage (cache/fallback) ───
+function loadLocal() {
+  try { const r = localStorage.getItem(LOCAL_KEY); if (r) return JSON.parse(r); } catch(e) {}
+  return [];
+}
+function saveLocal() {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(annotations)); } catch(e) {}
+}
+
+// ─── Save (local + remote) ───
+async function saveAnn() {
+  saveLocal();
+  await pushRemote(annotations);
+}
+
+// ─── Poll for new annotations from others ───
+async function pollRemote() {
+  const remote = await fetchRemote();
+  if (!remote) { setSyncStatus('offline'); return; }
+  setSyncStatus('ok');
+
+  // Find new annotations from others (ids not in our current set)
+  const currentIds = new Set(annotations.map(a => a.id));
+  const newFromOthers = remote.filter(a => !currentIds.has(a.id));
+
+  // Find deletions by others (ids in our set but not in remote)
+  const remoteIds = new Set(remote.map(a => a.id));
+  const deletedByOthers = annotations.filter(a => !remoteIds.has(a.id));
+
+  if (newFromOthers.length > 0 || deletedByOthers.length > 0) {
+    // Use remote as source of truth, but keep any very recent local additions (< 5s old)
+    const now = Date.now();
+    const recentLocal = annotations.filter(a => a.id > now - 5000 && !remoteIds.has(a.id));
+    annotations = [...remote, ...recentLocal].sort((a, b) => a.id - b.id);
+    saveLocal();
+
+    // Re-render highlights in DOM
+    rebuildHighlights();
+    renderSidebar();
+
+    if (newFromOthers.length > 0) {
+      showToast(`收到 ${newFromOthers.length} 条新批注`);
+    }
+  }
+}
+
+// ─── Rebuild highlight spans in DOM from annotations data ───
+// Since we can't insert highlights for remote annotations into exact DOM positions,
+// we search for the text and highlight the first match
+function rebuildHighlights() {
+  // First remove all existing highlights
+  document.querySelectorAll('.text-hl').forEach(span => {
+    const parent = span.parentNode;
+    while (span.firstChild) {
+      if (span.firstChild.classList && span.firstChild.classList.contains('hl-dot')) {
+        span.removeChild(span.firstChild);
+      } else {
+        parent.insertBefore(span.firstChild, span);
+      }
+    }
+    parent.removeChild(span);
+    parent.normalize();
+  });
+
+  // Re-apply all annotations by searching for text in the report
+  const report = document.getElementById('report');
+  for (const ann of annotations) {
+    highlightTextInDOM(report, ann);
+  }
+}
+
+function highlightTextInDOM(root, ann) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    const idx = node.textContent.indexOf(ann.text);
+    if (idx === -1) continue;
+    // Skip if already inside a highlight
+    if (node.parentElement.closest('.text-hl')) continue;
+
+    const range = document.createRange();
+    range.setStart(node, idx);
+    range.setEnd(node, idx + ann.text.length);
+
+    try {
+      const span = document.createElement('span');
+      span.className = 'text-hl' + (ann.note ? ' has-note' : '');
+      span.style.background = ann.color;
+      span.setAttribute('data-ann-id', ann.id);
+      span.onclick = (e) => { e.stopPropagation(); focusAnnotation(ann.id); };
+      range.surroundContents(span);
+      const dot = document.createElement('span');
+      dot.className = 'hl-dot';
+      dot.textContent = '...';
+      span.appendChild(dot);
+    } catch(e) { /* cross-boundary, skip */ }
+    break; // only highlight first occurrence
+  }
+}
+
+// ─── Text selection → show color picker ───
+document.addEventListener('mouseup', (e) => {
+  const toolbar = document.getElementById('hlToolbar');
+  const notePopup = document.getElementById('notePopup');
+  if (toolbar.contains(e.target)) return;
+  if (notePopup.contains(e.target)) return;
+
+  if (notePopup.classList.contains('show')) {
+    saveNote(false);
+  }
+
+  setTimeout(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim().length < 2) {
+      toolbar.classList.remove('visible');
+      pendingSel = null;
+      return;
+    }
+
+    const range = sel.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    const node = container.nodeType === 1 ? container : container.parentElement;
+    if (!node || !node.closest('#report')) {
+      toolbar.classList.remove('visible');
+      pendingSel = null;
+      return;
+    }
+
+    const rect = range.getBoundingClientRect();
+    toolbar.style.top = Math.max(4, rect.top - 44) + 'px';
+    toolbar.style.left = Math.max(8, rect.left + rect.width / 2 - 82) + 'px';
+    toolbar.classList.add('visible');
+    pendingSel = { text: sel.toString().trim(), range: range.cloneRange() };
+  }, 10);
+});
+
+// ─── Apply highlight color ───
+function doHighlight(color) {
+  if (!pendingSel) return;
+
+  const id = Date.now();
+  const selText = pendingSel.text;
+  let createdSpan = null;
+
+  try {
+    const range = pendingSel.range;
+    try {
+      const span = document.createElement('span');
+      span.className = 'text-hl';
+      span.style.background = color;
+      span.setAttribute('data-ann-id', id);
+      range.surroundContents(span);
+      const dot = document.createElement('span');
+      dot.className = 'hl-dot';
+      dot.textContent = '...';
+      span.appendChild(dot);
+      createdSpan = span;
+    } catch(surroundErr) {
+      const span = document.createElement('span');
+      span.className = 'text-hl';
+      span.style.background = color;
+      span.setAttribute('data-ann-id', id);
+      const frag = range.extractContents();
+      span.appendChild(frag);
+      const dot = document.createElement('span');
+      dot.className = 'hl-dot';
+      dot.textContent = '...';
+      span.appendChild(dot);
+      range.insertNode(span);
+      createdSpan = span;
+    }
+
+    if (createdSpan) {
+      createdSpan.onclick = (e) => { e.stopPropagation(); focusAnnotation(id); };
+
+      annotations.push({
+        id: id,
+        text: selText,
+        color: color,
+        note: '',
+        time: new Date().toLocaleString('zh-CN'),
+      });
+      saveAnn();
+      renderSidebar();
+
+      pendingHlId = id;
+      showNotePopup(createdSpan, selText, color);
+    }
+  } catch(e) {
+    console.error('Highlight error:', e);
+    alert('标注失败，请尝试选中更短的文字');
+  }
+
+  document.getElementById('hlToolbar').classList.remove('visible');
+  window.getSelection().removeAllRanges();
+  pendingSel = null;
+}
+
+// ─── Note popup ───
+function showNotePopup(anchorEl, text, color) {
+  const popup = document.getElementById('notePopup');
+  const quote = document.getElementById('npQuote');
+  const input = document.getElementById('npInput');
+
+  quote.textContent = '"' + (text.length > 80 ? text.slice(0, 80) + '...' : text) + '"';
+  quote.style.background = color;
+  quote.style.borderLeft = '3px solid ' + darken(color);
+  input.value = '';
+
+  const rect = anchorEl.getBoundingClientRect();
+  popup.style.top = Math.min(rect.bottom + 8, window.innerHeight - 260) + 'px';
+  popup.style.left = Math.max(16, Math.min(rect.left, window.innerWidth - 360)) + 'px';
+
+  popup.classList.add('show');
+  input.focus();
+}
+
+function saveNote(withText) {
+  const popup = document.getElementById('notePopup');
+  if (pendingHlId !== null) {
+    const ann = annotations.find(a => a.id === pendingHlId);
+    if (ann && withText) {
+      ann.note = document.getElementById('npInput').value.trim();
+    }
+    const span = document.querySelector(`[data-ann-id="${pendingHlId}"]`);
+    if (span && ann && ann.note) {
+      span.classList.add('has-note');
+    }
+    saveAnn();
+    renderSidebar();
+    pendingHlId = null;
+  }
+  popup.classList.remove('show');
+}
+
+// ─── Delete annotation ───
+function deleteAnn(id) {
+  annotations = annotations.filter(a => a.id !== id);
+  const span = document.querySelector(`[data-ann-id="${id}"]`);
+  if (span) {
+    const parent = span.parentNode;
+    while (span.firstChild) {
+      if (span.firstChild.classList && span.firstChild.classList.contains('hl-dot')) {
+        span.removeChild(span.firstChild);
+      } else {
+        parent.insertBefore(span.firstChild, span);
+      }
+    }
+    parent.removeChild(span);
+    parent.normalize();
+  }
+  saveAnn();
+  renderSidebar();
+}
+
+// ─── Edit note ───
+function editNote(id) {
+  const ann = annotations.find(a => a.id === id);
+  if (!ann) return;
+  const note = prompt('编辑批注：', ann.note || '');
+  if (note === null) return;
+  ann.note = note.trim();
+  const span = document.querySelector(`[data-ann-id="${id}"]`);
+  if (span) span.classList.toggle('has-note', !!ann.note);
+  saveAnn();
+  renderSidebar();
+}
+
+// ─── Focus: sidebar ↔ document ───
+function focusAnnotation(id) {
+  document.querySelectorAll('.ann-card').forEach(c => c.classList.remove('focused'));
+  const card = document.querySelector(`.ann-card[data-id="${id}"]`);
+  if (card) {
+    card.classList.add('focused');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  document.querySelectorAll('.text-hl').forEach(s => s.classList.remove('active'));
+  const span = document.querySelector(`[data-ann-id="${id}"]`);
+  if (span) span.classList.add('active');
+  setTimeout(() => {
+    if (span) span.classList.remove('active');
+    if (card) card.classList.remove('focused');
+  }, 2000);
+}
+
+function scrollToHighlight(id) {
+  const span = document.querySelector(`[data-ann-id="${id}"]`);
+  if (span) {
+    span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    span.classList.add('active');
+    setTimeout(() => span.classList.remove('active'), 2000);
+  }
+}
+
+// ─── Render sidebar (sorted by document position) ───
+function renderSidebar() {
+  const list = document.getElementById('annList');
+  const hint = document.getElementById('emptyHint');
+  const badge = document.getElementById('annBadge');
+  const count = annotations.length;
+
+  badge.textContent = count;
+  document.getElementById('toolbarCount').textContent = count > 0 ? count + ' 条批注' : '';
+  hint.style.display = count ? 'none' : 'block';
+
+  // Sort by position in document (offsetTop of highlighted span)
+  const sorted = annotations.slice().sort((a, b) => {
+    const spanA = document.querySelector(`[data-ann-id="${a.id}"]`);
+    const spanB = document.querySelector(`[data-ann-id="${b.id}"]`);
+    const posA = spanA ? spanA.getBoundingClientRect().top + window.scrollY : Infinity;
+    const posB = spanB ? spanB.getBoundingClientRect().top + window.scrollY : Infinity;
+    return posA - posB;
+  });
+
+  list.innerHTML = sorted.map(a => {
+    const noteHtml = a.note ? `<div class="ann-note">${esc(a.note)}</div>` : '';
+    return `<div class="ann-card" data-id="${a.id}" onclick="scrollToHighlight(${a.id})">
+      <div class="ann-quote" style="background:${a.color};border-left:3px solid ${darken(a.color)};">${esc(a.text)}</div>
+      ${noteHtml}
+      <div class="ann-time">${a.time}</div>
+      <div class="ann-actions">
+        <button onclick="event.stopPropagation();editNote(${a.id})">编辑批注</button>
+        <button class="del" onclick="event.stopPropagation();deleteAnn(${a.id})">删除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Clear all ───
+function clearAll() {
+  if (!annotations.length) return;
+  if (!confirm('确定清空所有标注和批注吗？')) return;
+  document.querySelectorAll('.text-hl').forEach(span => {
+    const parent = span.parentNode;
+    while (span.firstChild) {
+      if (span.firstChild.classList && span.firstChild.classList.contains('hl-dot')) {
+        span.removeChild(span.firstChild);
+      } else {
+        parent.insertBefore(span.firstChild, span);
+      }
+    }
+    parent.removeChild(span);
+    parent.normalize();
+  });
+  annotations = [];
+  saveAnn();
+  renderSidebar();
+}
+
+// ─── Export ───
+function exportAll() {
+  if (!annotations.length) { alert('暂无批注'); return; }
+  let out = '以下是对 GDC 2026 AI 深度分析报告的批注，请根据这些反馈更新报告：\n\n';
+  annotations.forEach((a, i) => {
+    out += `【${i+1}】\n`;
+    out += `标注原文："${a.text}"\n`;
+    if (a.note) out += `批注：${a.note}\n`;
+    out += '\n';
+  });
+  document.getElementById('exportContent').textContent = out;
+  document.getElementById('exportOverlay').classList.add('show');
+}
+
+function copyExport() {
+  const text = document.getElementById('exportContent').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '已复制!';
+    setTimeout(() => btn.textContent = '复制到剪贴板', 1500);
+  });
+}
+
+// ─── Util ───
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function darken(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgb(${Math.max(0,r-50)},${Math.max(0,g-50)},${Math.max(0,b-50)})`;
+}
+
+// ─── Keyboard ───
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('hlToolbar').classList.remove('visible');
+    document.getElementById('notePopup').classList.remove('show');
+    document.getElementById('exportOverlay').classList.remove('show');
+    pendingSel = null;
+  }
+  if (e.key === 'Enter' && e.ctrlKey && document.getElementById('notePopup').classList.contains('show')) {
+    saveNote(true);
+  }
+});
+
+// ─── Fix multi-layer double-encoded UTF-8 ───
+function fixDoubleEncoded(str) {
+  if (!str) return str;
+  let current = str;
+  for (let round = 0; round < 5; round++) {
+    try {
+      // Check if all chars are in Latin-1 range (0-255)
+      let allLatin1 = true;
+      for (let i = 0; i < current.length; i++) {
+        if (current.charCodeAt(i) > 255) { allLatin1 = false; break; }
+      }
+      if (!allLatin1) break; // Has real Unicode, no more layers to peel
+
+      const bytes = new Uint8Array(current.length);
+      for (let i = 0; i < current.length; i++) bytes[i] = current.charCodeAt(i);
+      const decoded = new TextDecoder().decode(bytes);
+      if (decoded === current) break; // No change
+      current = decoded;
+    } catch(e) { break; }
+  }
+  return current;
+}
+
+function migrateAnnotations(anns) {
+  let changed = false;
+  for (const a of anns) {
+    const fixedText = fixDoubleEncoded(a.text);
+    const fixedNote = fixDoubleEncoded(a.note);
+    if (fixedText !== a.text || fixedNote !== a.note) {
+      a.text = fixedText;
+      a.note = fixedNote;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+// ─── Build outline from section/sub headings ───
+function buildOutline() {
+  const nav = document.getElementById('outlineNav');
+  const report = document.getElementById('report');
+  const headings = report.querySelectorAll('.section-title, .sub-title, .sub-sub-title');
+  let html = '';
+  headings.forEach((h, i) => {
+    // Ensure heading has an id for linking
+    if (!h.id) h.id = 'heading-' + i;
+    const text = h.textContent.trim();
+    let cls = '';
+    if (h.classList.contains('sub-title')) cls = ' class="lv2"';
+    else if (h.classList.contains('sub-sub-title')) cls = ' class="lv3"';
+    html += `<a href="#${h.id}"${cls} data-target="${h.id}">${text}</a>`;
+  });
+  nav.innerHTML = html;
+
+  // Click handler: smooth scroll
+  nav.addEventListener('click', (e) => {
+    const a = e.target.closest('a');
+    if (!a) return;
+    e.preventDefault();
+    const target = document.getElementById(a.dataset.target);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // Scroll spy: highlight active section
+  let ticking = false;
+  function updateActive() {
+    const scrollY = window.scrollY + 80;
+    let activeId = '';
+    headings.forEach(h => {
+      if (h.getBoundingClientRect().top + window.scrollY <= scrollY) activeId = h.id;
+    });
+    nav.querySelectorAll('a').forEach(a => {
+      a.classList.toggle('active', a.dataset.target === activeId);
+    });
+    // Auto-scroll outline to keep active item visible
+    const activeLink = nav.querySelector('a.active');
+    if (activeLink) activeLink.scrollIntoView({ block: 'nearest' });
+    ticking = false;
+  }
+  window.addEventListener('scroll', () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(updateActive); }
+  });
+  updateActive();
+}
+
+// ─── Init: load from remote, merge with local cache, render ───
+(async function init() {
+  // Build outline
+  buildOutline();
+
+  setSyncStatus('syncing');
+  const local = loadLocal();
+  const remote = await fetchRemote();
+
+  if (remote !== null) {
+    annotations = mergeAnnotations(local, remote);
+    const localOnlyCount = annotations.filter(a => !remote.find(r => r.id === a.id)).length;
+    // Migrate double-encoded text
+    const migrated = migrateAnnotations(annotations);
+    if (localOnlyCount > 0 || migrated) {
+      await pushRemote(annotations);
+    }
+    setSyncStatus('ok');
+  } else {
+    annotations = local;
+    migrateAnnotations(annotations);
+    setSyncStatus('offline');
+  }
+
+  saveLocal();
+  rebuildHighlights();
+  renderSidebar();
+
+  // Start polling for updates
+  setInterval(pollRemote, SYNC_INTERVAL);
+})();
+</script>
+</body>
+</html>
