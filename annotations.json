@@ -1,67 +1,11 @@
 {
   "annotations": [
     {
-      "id": 1773552439346,
-      "text": "该系统采用「设计师优先」的理念，通过设计师定义的奖励函数和行为约束，",
-      "color": "#fde68a",
-      "note": "https://www.ea.com/amp/news/ea-gdc-2026",
-      "time": "2026/3/15 14:27:19"
-    },
-    {
-      "id": 1773552504838,
-      "text": "新一代动态多帧生成技术",
-      "color": "#fde68a",
-      "note": "模型架构从conv变成了transformer",
-      "time": "2026/3/15 14:28:24"
-    },
-    {
-      "id": 1773552546587,
-      "text": "Zenith",
-      "color": "#fde68a",
-      "note": "https://dl.acm.org/doi/pdf/10.1145/3757374.3771776",
-      "time": "2026/3/15 14:29:06"
-    },
-    {
-      "id": 1773552574228,
-      "text": "玩家可以导入游戏片段，让AI自动提取动作和镜头运动",
-      "color": "#fde68a",
-      "note": "这个我们也可以做。游戏运营",
-      "time": "2026/3/15 14:29:34"
-    },
-    {
-      "id": 1773552605887,
-      "text": "Agentic Arcade",
-      "color": "#bbf7d0",
-      "note": "https://aws.amazon.com/blogs/gametech/ai-assisted-game-production-from-static-concept-to-interactive-prototype/\n\ngithub上的star只有2个",
-      "time": "2026/3/15 14:30:05"
-    },
-    {
-      "id": 1773552648392,
-      "text": "Short Form Futures: How AI Turned MMO Players into TikTok Creators",
-      "color": "#fde68a",
-      "note": "https://www.4gamer.net/games/914/G091423/20260313048/",
-      "time": "2026/3/15 14:30:48"
-    },
-    {
-      "id": 1773552952044,
-      "text": "2026年2月上任的微软游戏CEO Asha Sharma明确表示要保护平台免受「无灵魂AI垃圾」的侵害",
-      "color": "#fecaca",
+      "id": 1774491832508,
+      "text": "参展厂商发布内容的系统调研，从三个维度展开深度分析：传统游戏AI（NPC",
+      "color": "#bfdbfe",
       "note": "",
-      "time": "2026/3/15 14:35:52"
-    },
-    {
-      "id": 1773560788691,
-      "text": "Unity AI的Beta版本",
-      "color": "#fde68a",
-      "note": "",
-      "time": "2026/3/15 16:46:28"
-    },
-    {
-      "id": 1773572211830,
-      "text": "mit（游戏AI峰会）和M",
-      "color": "#bbf7d0",
-      "note": "",
-      "time": "2026/3/15 19:56:51"
+      "time": "2026/3/26 10:23:52"
     }
   ]
 }
